@@ -1,9 +1,40 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.25)
 project(RayTracing)
 
-# C++11標準を使用するように設定
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 実行ファイルの設定（src/main.cpp をコンパイルする）
-add_executable(inOneWeekend src/main.cpp "src/vec3.h" "src/color.h" "src/ray.h" "src/hittable.h" "src/sphere.h" "src/hittable_list.h" "src/rtweekend.h" "src/interval.h" "src/camera.h" "src/material.h")
+option(USE_VULKAN "Enable Vulkan compute renderer support" ON)
+
+add_executable(inOneWeekend
+    src/main.cpp
+    src/vec3.h
+    src/color.h
+    src/ray.h
+    src/hittable.h
+    src/sphere.h
+    src/hittable_list.h
+    src/rtweekend.h
+    src/interval.h
+    src/camera.h
+    src/material.h
+)
+
+if(USE_VULKAN)
+    find_package(Vulkan REQUIRED)
+    include(${CMAKE_SOURCE_DIR}/cmake/CompileShaders.cmake)
+
+    set(SHADER_DIR ${CMAKE_SOURCE_DIR}/shaders)
+    set(SHADER_GRADIENT ${SHADER_DIR}/gradient.comp)
+
+    compile_shader(${SHADER_GRADIENT} COMPILED_GRADIENT)
+
+    target_sources(inOneWeekend PRIVATE
+        src/vulkan_renderer.cpp
+        src/vulkan_renderer.h
+        ${SHADER_GRADIENT}
+        ${COMPILED_GRADIENT}
+    )
+    target_compile_definitions(inOneWeekend PRIVATE RTWEEKEND_VULKAN_ENABLED)
+    target_link_libraries(inOneWeekend PRIVATE Vulkan::Vulkan)
+endif()

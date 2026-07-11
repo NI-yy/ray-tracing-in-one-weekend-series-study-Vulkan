@@ -6,7 +6,36 @@
 #include "material.h"
 #include "sphere.h"
 
-int main() {
+#include <iostream>
+#include <string>
+
+#ifdef RTWEEKEND_VULKAN_ENABLED
+#include "vulkan_renderer.h"
+#endif
+
+namespace {
+
+bool is_vulkan_renderer_requested(int argc, char** argv) {
+    return argc >= 3
+        && std::string(argv[1]) == "--renderer"
+        && std::string(argv[2]) == "vulkan";
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+#ifdef RTWEEKEND_VULKAN_ENABLED
+    if (is_vulkan_renderer_requested(argc, argv)) {
+        render_vulkan_gradient("image_vulkan_gradient.ppm", 200, 112);
+        return 0;
+    }
+#else
+    if (is_vulkan_renderer_requested(argc, argv)) {
+        std::cerr << "Vulkan renderer is not enabled in this build.\n";
+        return 1;
+    }
+#endif
+
     hittable_list world;
 
     auto ground_material = make_shared<lambertian>(color(0.5, 0.5, 0.5));

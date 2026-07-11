@@ -11,12 +11,14 @@ cmake-build-release/
 *.pdb
 *.obj
 *.exe
+*.spv
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 CMakeUserPresets.json
 image.ppm
 image.png
+image_vulkan_gradient.ppm
 image_test.png
 .DS_Store
 Thumbs.db
