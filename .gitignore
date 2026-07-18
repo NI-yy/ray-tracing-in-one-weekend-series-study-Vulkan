@@ -19,6 +19,7 @@ CMakeUserPresets.json
 image.ppm
 image.png
 image_vulkan_gradient.ppm
+image_vulkan_sphere.ppm
 image_test.png
 .DS_Store
 Thumbs.db

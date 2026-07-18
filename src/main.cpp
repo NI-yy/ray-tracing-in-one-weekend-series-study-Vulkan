@@ -26,7 +26,7 @@ bool is_vulkan_renderer_requested(int argc, char** argv) {
 int main(int argc, char** argv) {
 #ifdef RTWEEKEND_VULKAN_ENABLED
     if (is_vulkan_renderer_requested(argc, argv)) {
-        render_vulkan_gradient("image_vulkan_gradient.ppm", 200, 112);
+        render_vulkan_single_sphere("image_vulkan_sphere.ppm", 200, 112);
         return 0;
     }
 #else

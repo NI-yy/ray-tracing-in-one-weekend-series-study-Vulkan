@@ -56,12 +56,12 @@ uint32_t find_memory_type(
     throw std::runtime_error("failed to find suitable Vulkan memory type");
 }
 
-class VulkanGradientRenderer {
+class VulkanComputeRenderer {
 public:
-    VulkanGradientRenderer(int width, int height)
-        : m_width(width), m_height(height) {}
+    VulkanComputeRenderer(int width, int height, const char* shader_spv_path)
+        : m_width(width), m_height(height), m_shader_spv_path(shader_spv_path) {}
 
-    ~VulkanGradientRenderer() {
+    ~VulkanComputeRenderer() {
         cleanup();
     }
 
@@ -80,6 +80,7 @@ public:
 private:
     int m_width = 0;
     int m_height = 0;
+    const char* m_shader_spv_path = nullptr;
     uint32_t m_queue_family_index = 0;
 
     VkInstance m_instance = VK_NULL_HANDLE;
@@ -244,7 +245,7 @@ private:
     }
 
     void create_compute_pipeline() {
-        const std::vector<char> shader_code = read_binary_file("shaders/gradient.comp.spv");
+        const std::vector<char> shader_code = read_binary_file(m_shader_spv_path);
 
         VkShaderModuleCreateInfo shader_info{};
         shader_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -395,10 +396,19 @@ private:
 } // namespace
 
 void render_vulkan_gradient(const char* output_file, int image_width, int image_height) {
-    VulkanGradientRenderer renderer(image_width, image_height);
+    VulkanComputeRenderer renderer(image_width, image_height, "shaders/gradient.comp.spv");
     renderer.render(output_file);
 
     std::clog
         << "Vulkan compute gradient written to " << output_file << '\n'
+        << "  image: " << image_width << "x" << image_height << '\n';
+}
+
+void render_vulkan_single_sphere(const char* output_file, int image_width, int image_height) {
+    VulkanComputeRenderer renderer(image_width, image_height, "shaders/sphere.comp.spv");
+    renderer.render(output_file);
+
+    std::clog
+        << "Vulkan compute single sphere written to " << output_file << '\n'
         << "  image: " << image_width << "x" << image_height << '\n';
 }
