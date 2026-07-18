@@ -28,10 +28,12 @@ if(USE_VULKAN)
     set(SHADER_GRADIENT ${SHADER_DIR}/gradient.comp)
     set(SHADER_SPHERE ${SHADER_DIR}/sphere.comp)
     set(SHADER_SPHERES ${SHADER_DIR}/spheres.comp)
+    set(SHADER_DIFFUSE ${SHADER_DIR}/diffuse.comp)
 
     compile_shader(${SHADER_GRADIENT} COMPILED_GRADIENT)
     compile_shader(${SHADER_SPHERE} COMPILED_SPHERE)
     compile_shader(${SHADER_SPHERES} COMPILED_SPHERES)
+    compile_shader(${SHADER_DIFFUSE} COMPILED_DIFFUSE)
 
     target_sources(inOneWeekend PRIVATE
         src/vulkan_renderer.cpp
@@ -42,6 +44,8 @@ if(USE_VULKAN)
         ${COMPILED_SPHERE}
         ${SHADER_SPHERES}
         ${COMPILED_SPHERES}
+        ${SHADER_DIFFUSE}
+        ${COMPILED_DIFFUSE}
     )
     target_compile_definitions(inOneWeekend PRIVATE RTWEEKEND_VULKAN_ENABLED)
     target_link_libraries(inOneWeekend PRIVATE Vulkan::Vulkan)

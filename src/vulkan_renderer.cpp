@@ -504,3 +504,20 @@ void render_vulkan_multiple_spheres(const char* output_file, int image_width, in
         << "  image: " << image_width << "x" << image_height << '\n'
         << "  spheres: " << spheres.size() << '\n';
 }
+
+void render_vulkan_diffuse_spheres(const char* output_file, int image_width, int image_height) {
+    const std::vector<GpuSphere> spheres{
+        {0.0f, -100.5f, -1.0f, 100.0f},
+        {0.0f, 0.0f, -1.0f, 0.5f},
+        {-1.0f, 0.0f, -1.0f, 0.5f},
+        {1.0f, 0.0f, -1.0f, 0.5f}
+    };
+
+    VulkanComputeRenderer renderer(image_width, image_height, "shaders/diffuse.comp.spv", spheres);
+    renderer.render(output_file);
+
+    std::clog
+        << "Vulkan compute diffuse spheres written to " << output_file << '\n'
+        << "  image: " << image_width << "x" << image_height << '\n'
+        << "  spheres: " << spheres.size() << '\n';
+}
