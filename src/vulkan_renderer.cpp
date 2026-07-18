@@ -781,7 +781,7 @@ void render_vulkan_material_spheres(const char* output_file, int image_width, in
     const std::vector<GpuSphere> spheres = create_demo_scene();
 
     VulkanComputeRenderer renderer(image_width, image_height, "shaders/materials.comp.spv", spheres);
-    renderer.set_sampling(10, 10);
+    renderer.set_sampling(500, 50);
     renderer.set_camera(
         make_vec3(13.0, 2.0, 3.0),
         make_vec3(0.0, 0.0, 0.0),
@@ -796,6 +796,6 @@ void render_vulkan_material_spheres(const char* output_file, int image_width, in
         << "Vulkan compute material spheres written to " << output_file << '\n'
         << "  image: " << image_width << "x" << image_height << '\n'
         << "  spheres: " << spheres.size() << '\n'
-        << "  samples_per_pixel: 10\n"
-        << "  max_depth: 10\n";
+        << "  samples_per_pixel: 500\n"
+        << "  max_depth: 50\n";
 }
