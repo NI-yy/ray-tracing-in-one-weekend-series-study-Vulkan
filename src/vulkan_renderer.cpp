@@ -16,6 +16,8 @@ struct PushConstants {
     uint32_t width;
     uint32_t height;
     uint32_t sphere_count;
+    uint32_t samples_per_pixel;
+    uint32_t max_depth;
 };
 
 struct GpuSphere {
@@ -81,6 +83,11 @@ public:
         cleanup();
     }
 
+    void set_sampling(int samples_per_pixel, int max_depth) {
+        m_samples_per_pixel = samples_per_pixel;
+        m_max_depth = max_depth;
+    }
+
     void render(const char* output_file) {
         create_instance();
         pick_physical_device();
@@ -97,6 +104,8 @@ public:
 private:
     int m_width = 0;
     int m_height = 0;
+    int m_samples_per_pixel = 1;
+    int m_max_depth = 1;
     const char* m_shader_spv_path = nullptr;
     std::vector<GpuSphere> m_spheres;
     uint32_t m_queue_family_index = 0;
@@ -395,7 +404,9 @@ private:
         const PushConstants push_constants{
             static_cast<uint32_t>(m_width),
             static_cast<uint32_t>(m_height),
-            static_cast<uint32_t>(m_spheres.size())
+            static_cast<uint32_t>(m_spheres.size()),
+            static_cast<uint32_t>(m_samples_per_pixel),
+            static_cast<uint32_t>(m_max_depth)
         };
         vkCmdPushConstants(
             m_command_buffer,
@@ -514,10 +525,13 @@ void render_vulkan_diffuse_spheres(const char* output_file, int image_width, int
     };
 
     VulkanComputeRenderer renderer(image_width, image_height, "shaders/diffuse.comp.spv", spheres);
+    renderer.set_sampling(10, 5);
     renderer.render(output_file);
 
     std::clog
         << "Vulkan compute diffuse spheres written to " << output_file << '\n'
         << "  image: " << image_width << "x" << image_height << '\n'
-        << "  spheres: " << spheres.size() << '\n';
+        << "  spheres: " << spheres.size() << '\n'
+        << "  samples_per_pixel: 10\n"
+        << "  max_depth: 5\n";
 }

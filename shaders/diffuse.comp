@@ -6,6 +6,8 @@ layout(push_constant) uniform PushConstants {
     uint width;
     uint height;
     uint sphere_count;
+    uint samples_per_pixel;
+    uint max_depth;
 } pc;
 
 struct Sphere {
@@ -114,13 +116,26 @@ vec3 background_color(vec3 ray_direction) {
 }
 
 vec3 ray_color(vec3 ray_origin, vec3 ray_direction, inout uint rng_state) {
-    HitRecord rec;
-    if (hit_world(ray_origin, ray_direction, 0.001, 1.0e30, rec)) {
-        vec3 bounce_direction = rec.normal + normalize(random_in_unit_sphere(rng_state));
-        return 0.5 * background_color(bounce_direction);
+    vec3 attenuation = vec3(1.0);
+
+    for (uint depth = 0; depth < pc.max_depth; ++depth) {
+        HitRecord rec;
+        if (hit_world(ray_origin, ray_direction, 0.001, 1.0e30, rec)) {
+            vec3 bounce_direction = rec.normal + normalize(random_in_unit_sphere(rng_state));
+
+            if (dot(bounce_direction, bounce_direction) < 1.0e-8) {
+                bounce_direction = rec.normal;
+            }
+
+            ray_origin = rec.point;
+            ray_direction = bounce_direction;
+            attenuation *= 0.5;
+        } else {
+            return attenuation * background_color(ray_direction);
+        }
     }
 
-    return background_color(ray_direction);
+    return vec3(0.0);
 }
 
 void main() {
@@ -146,11 +161,20 @@ void main() {
     vec3 pixel00_loc = viewport_upper_left + 0.5 * (pixel_delta_u + pixel_delta_v);
 
     uint rng_state = hash_u32((y * pc.width + x) ^ 0x9e3779b9u);
-    vec3 pixel_sample = pixel00_loc
-        + (float(x) + random_float(rng_state) - 0.5) * pixel_delta_u
-        + (float(y) + random_float(rng_state) - 0.5) * pixel_delta_v;
-    vec3 ray_direction = pixel_sample - ray_origin;
-    vec3 color = ray_color(ray_origin, ray_direction, rng_state);
+    vec3 color = vec3(0.0);
+
+    for (uint sample_index = 0; sample_index < pc.samples_per_pixel; ++sample_index) {
+        rng_state = hash_u32(rng_state ^ sample_index);
+
+        vec3 pixel_sample = pixel00_loc
+            + (float(x) + random_float(rng_state) - 0.5) * pixel_delta_u
+            + (float(y) + random_float(rng_state) - 0.5) * pixel_delta_v;
+        vec3 ray_direction = pixel_sample - ray_origin;
+        color += ray_color(ray_origin, ray_direction, rng_state);
+    }
+
+    color /= float(pc.samples_per_pixel);
+    color = sqrt(color);
 
     uint r = uint(clamp(color.r, 0.0, 0.999) * 256.0);
     uint g = uint(clamp(color.g, 0.0, 0.999) * 256.0);
