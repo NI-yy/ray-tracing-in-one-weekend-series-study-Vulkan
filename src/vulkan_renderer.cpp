@@ -25,6 +25,14 @@ struct GpuSphere {
     float center_y;
     float center_z;
     float radius;
+    float albedo_r;
+    float albedo_g;
+    float albedo_b;
+    float material_type;
+    float fuzz;
+    float refraction_index;
+    float padding0;
+    float padding1;
 };
 
 void check(VkResult result, const char* message) {
@@ -501,10 +509,10 @@ void render_vulkan_single_sphere(const char* output_file, int image_width, int i
 
 void render_vulkan_multiple_spheres(const char* output_file, int image_width, int image_height) {
     const std::vector<GpuSphere> spheres{
-        {0.0f, -100.5f, -1.0f, 100.0f},
-        {0.0f, 0.0f, -1.0f, 0.5f},
-        {-1.0f, 0.0f, -1.0f, 0.5f},
-        {1.0f, 0.0f, -1.0f, 0.5f}
+        {0.0f, -100.5f, -1.0f, 100.0f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, -1.0f, 0.5f, 0.1f, 0.2f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f},
+        {-1.0f, 0.0f, -1.0f, 0.5f, 1.0f, 1.0f, 1.0f, 2.0f, 0.0f, 1.5f, 0.0f, 0.0f},
+        {1.0f, 0.0f, -1.0f, 0.5f, 0.8f, 0.6f, 0.2f, 1.0f, 0.05f, 1.0f, 0.0f, 0.0f}
     };
 
     VulkanComputeRenderer renderer(image_width, image_height, "shaders/spheres.comp.spv", spheres);
@@ -518,10 +526,10 @@ void render_vulkan_multiple_spheres(const char* output_file, int image_width, in
 
 void render_vulkan_diffuse_spheres(const char* output_file, int image_width, int image_height) {
     const std::vector<GpuSphere> spheres{
-        {0.0f, -100.5f, -1.0f, 100.0f},
-        {0.0f, 0.0f, -1.0f, 0.5f},
-        {-1.0f, 0.0f, -1.0f, 0.5f},
-        {1.0f, 0.0f, -1.0f, 0.5f}
+        {0.0f, -100.5f, -1.0f, 100.0f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, -1.0f, 0.5f, 0.1f, 0.2f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f},
+        {-1.0f, 0.0f, -1.0f, 0.5f, 1.0f, 1.0f, 1.0f, 2.0f, 0.0f, 1.5f, 0.0f, 0.0f},
+        {1.0f, 0.0f, -1.0f, 0.5f, 0.8f, 0.6f, 0.2f, 1.0f, 0.05f, 1.0f, 0.0f, 0.0f}
     };
 
     VulkanComputeRenderer renderer(image_width, image_height, "shaders/diffuse.comp.spv", spheres);
@@ -534,4 +542,24 @@ void render_vulkan_diffuse_spheres(const char* output_file, int image_width, int
         << "  spheres: " << spheres.size() << '\n'
         << "  samples_per_pixel: 10\n"
         << "  max_depth: 5\n";
+}
+
+void render_vulkan_material_spheres(const char* output_file, int image_width, int image_height) {
+    const std::vector<GpuSphere> spheres{
+        {0.0f, -100.5f, -1.0f, 100.0f, 0.8f, 0.8f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f},
+        {0.0f, 0.0f, -1.0f, 0.5f, 0.1f, 0.2f, 0.5f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f},
+        {-1.0f, 0.0f, -1.0f, 0.5f, 1.0f, 1.0f, 1.0f, 2.0f, 0.0f, 1.5f, 0.0f, 0.0f},
+        {1.0f, 0.0f, -1.0f, 0.5f, 0.8f, 0.6f, 0.2f, 1.0f, 0.05f, 1.0f, 0.0f, 0.0f}
+    };
+
+    VulkanComputeRenderer renderer(image_width, image_height, "shaders/materials.comp.spv", spheres);
+    renderer.set_sampling(20, 10);
+    renderer.render(output_file);
+
+    std::clog
+        << "Vulkan compute material spheres written to " << output_file << '\n'
+        << "  image: " << image_width << "x" << image_height << '\n'
+        << "  spheres: " << spheres.size() << '\n'
+        << "  samples_per_pixel: 20\n"
+        << "  max_depth: 10\n";
 }

@@ -5,5 +5,6 @@ void render_vulkan_gradient(const char* output_file, int image_width, int image_
 void render_vulkan_single_sphere(const char* output_file, int image_width, int image_height);
 void render_vulkan_multiple_spheres(const char* output_file, int image_width, int image_height);
 void render_vulkan_diffuse_spheres(const char* output_file, int image_width, int image_height);
+void render_vulkan_material_spheres(const char* output_file, int image_width, int image_height);
 
 #endif

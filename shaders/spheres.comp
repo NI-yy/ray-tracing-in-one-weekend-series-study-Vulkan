@@ -10,6 +10,8 @@ layout(push_constant) uniform PushConstants {
 
 struct Sphere {
     vec4 center_radius;
+    vec4 albedo_type;
+    vec4 params;
 };
 
 layout(std430, binding = 0) buffer Pixels {
