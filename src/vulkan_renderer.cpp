@@ -15,6 +15,14 @@ namespace {
 struct PushConstants {
     uint32_t width;
     uint32_t height;
+    uint32_t sphere_count;
+};
+
+struct GpuSphere {
+    float center_x;
+    float center_y;
+    float center_z;
+    float radius;
 };
 
 void check(VkResult result, const char* message) {
@@ -58,8 +66,16 @@ uint32_t find_memory_type(
 
 class VulkanComputeRenderer {
 public:
-    VulkanComputeRenderer(int width, int height, const char* shader_spv_path)
-        : m_width(width), m_height(height), m_shader_spv_path(shader_spv_path) {}
+    VulkanComputeRenderer(
+        int width,
+        int height,
+        const char* shader_spv_path,
+        const std::vector<GpuSphere>& spheres = std::vector<GpuSphere>()
+    )
+        : m_width(width),
+          m_height(height),
+          m_shader_spv_path(shader_spv_path),
+          m_spheres(spheres) {}
 
     ~VulkanComputeRenderer() {
         cleanup();
@@ -70,6 +86,7 @@ public:
         pick_physical_device();
         create_logical_device();
         create_output_buffer();
+        create_sphere_buffer();
         create_descriptor_set();
         create_compute_pipeline();
         create_command_buffer();
@@ -81,6 +98,7 @@ private:
     int m_width = 0;
     int m_height = 0;
     const char* m_shader_spv_path = nullptr;
+    std::vector<GpuSphere> m_spheres;
     uint32_t m_queue_family_index = 0;
 
     VkInstance m_instance = VK_NULL_HANDLE;
@@ -90,6 +108,8 @@ private:
 
     VkBuffer m_output_buffer = VK_NULL_HANDLE;
     VkDeviceMemory m_output_memory = VK_NULL_HANDLE;
+    VkBuffer m_sphere_buffer = VK_NULL_HANDLE;
+    VkDeviceMemory m_sphere_memory = VK_NULL_HANDLE;
 
     VkDescriptorSetLayout m_descriptor_set_layout = VK_NULL_HANDLE;
     VkDescriptorPool m_descriptor_pool = VK_NULL_HANDLE;
@@ -194,23 +214,63 @@ private:
         check(vkBindBufferMemory(m_device, m_output_buffer, m_output_memory, 0), "failed to bind Vulkan output buffer memory");
     }
 
+    void create_sphere_buffer() {
+        const size_t sphere_count = m_spheres.empty() ? 1 : m_spheres.size();
+        const VkDeviceSize buffer_size = static_cast<VkDeviceSize>(sphere_count) * sizeof(GpuSphere);
+
+        VkBufferCreateInfo buffer_info{};
+        buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        buffer_info.size = buffer_size;
+        buffer_info.usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+        buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        check(vkCreateBuffer(m_device, &buffer_info, nullptr, &m_sphere_buffer), "failed to create Vulkan sphere buffer");
+
+        VkMemoryRequirements memory_requirements{};
+        vkGetBufferMemoryRequirements(m_device, m_sphere_buffer, &memory_requirements);
+
+        VkMemoryAllocateInfo allocate_info{};
+        allocate_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocate_info.allocationSize = memory_requirements.size;
+        allocate_info.memoryTypeIndex = find_memory_type(
+            m_physical_device,
+            memory_requirements.memoryTypeBits,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+        );
+
+        check(vkAllocateMemory(m_device, &allocate_info, nullptr, &m_sphere_memory), "failed to allocate Vulkan sphere memory");
+        check(vkBindBufferMemory(m_device, m_sphere_buffer, m_sphere_memory, 0), "failed to bind Vulkan sphere buffer memory");
+
+        if (!m_spheres.empty()) {
+            void* mapped = nullptr;
+            check(vkMapMemory(m_device, m_sphere_memory, 0, buffer_size, 0, &mapped), "failed to map Vulkan sphere memory");
+            std::memcpy(mapped, m_spheres.data(), m_spheres.size() * sizeof(GpuSphere));
+            vkUnmapMemory(m_device, m_sphere_memory);
+        }
+    }
+
     void create_descriptor_set() {
-        VkDescriptorSetLayoutBinding binding{};
-        binding.binding = 0;
-        binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        binding.descriptorCount = 1;
-        binding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        VkDescriptorSetLayoutBinding bindings[2]{};
+        bindings[0].binding = 0;
+        bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bindings[0].descriptorCount = 1;
+        bindings[0].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+        bindings[1].binding = 1;
+        bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bindings[1].descriptorCount = 1;
+        bindings[1].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
         VkDescriptorSetLayoutCreateInfo layout_info{};
         layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        layout_info.bindingCount = 1;
-        layout_info.pBindings = &binding;
+        layout_info.bindingCount = 2;
+        layout_info.pBindings = bindings;
 
         check(vkCreateDescriptorSetLayout(m_device, &layout_info, nullptr, &m_descriptor_set_layout), "failed to create Vulkan descriptor set layout");
 
         VkDescriptorPoolSize pool_size{};
         pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        pool_size.descriptorCount = 1;
+        pool_size.descriptorCount = 2;
 
         VkDescriptorPoolCreateInfo pool_info{};
         pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -228,20 +288,32 @@ private:
 
         check(vkAllocateDescriptorSets(m_device, &allocate_info, &m_descriptor_set), "failed to allocate Vulkan descriptor set");
 
-        VkDescriptorBufferInfo buffer_info{};
-        buffer_info.buffer = m_output_buffer;
-        buffer_info.offset = 0;
-        buffer_info.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo output_buffer_info{};
+        output_buffer_info.buffer = m_output_buffer;
+        output_buffer_info.offset = 0;
+        output_buffer_info.range = VK_WHOLE_SIZE;
 
-        VkWriteDescriptorSet descriptor_write{};
-        descriptor_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptor_write.dstSet = m_descriptor_set;
-        descriptor_write.dstBinding = 0;
-        descriptor_write.descriptorCount = 1;
-        descriptor_write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptor_write.pBufferInfo = &buffer_info;
+        VkDescriptorBufferInfo sphere_buffer_info{};
+        sphere_buffer_info.buffer = m_sphere_buffer;
+        sphere_buffer_info.offset = 0;
+        sphere_buffer_info.range = VK_WHOLE_SIZE;
 
-        vkUpdateDescriptorSets(m_device, 1, &descriptor_write, 0, nullptr);
+        VkWriteDescriptorSet descriptor_writes[2]{};
+        descriptor_writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptor_writes[0].dstSet = m_descriptor_set;
+        descriptor_writes[0].dstBinding = 0;
+        descriptor_writes[0].descriptorCount = 1;
+        descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptor_writes[0].pBufferInfo = &output_buffer_info;
+
+        descriptor_writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptor_writes[1].dstSet = m_descriptor_set;
+        descriptor_writes[1].dstBinding = 1;
+        descriptor_writes[1].descriptorCount = 1;
+        descriptor_writes[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptor_writes[1].pBufferInfo = &sphere_buffer_info;
+
+        vkUpdateDescriptorSets(m_device, 2, descriptor_writes, 0, nullptr);
     }
 
     void create_compute_pipeline() {
@@ -322,7 +394,8 @@ private:
 
         const PushConstants push_constants{
             static_cast<uint32_t>(m_width),
-            static_cast<uint32_t>(m_height)
+            static_cast<uint32_t>(m_height),
+            static_cast<uint32_t>(m_spheres.size())
         };
         vkCmdPushConstants(
             m_command_buffer,
@@ -388,6 +461,8 @@ private:
         if (m_descriptor_set_layout != VK_NULL_HANDLE) vkDestroyDescriptorSetLayout(m_device, m_descriptor_set_layout, nullptr);
         if (m_output_buffer != VK_NULL_HANDLE) vkDestroyBuffer(m_device, m_output_buffer, nullptr);
         if (m_output_memory != VK_NULL_HANDLE) vkFreeMemory(m_device, m_output_memory, nullptr);
+        if (m_sphere_buffer != VK_NULL_HANDLE) vkDestroyBuffer(m_device, m_sphere_buffer, nullptr);
+        if (m_sphere_memory != VK_NULL_HANDLE) vkFreeMemory(m_device, m_sphere_memory, nullptr);
         if (m_device != VK_NULL_HANDLE) vkDestroyDevice(m_device, nullptr);
         if (m_instance != VK_NULL_HANDLE) vkDestroyInstance(m_instance, nullptr);
     }
@@ -411,4 +486,21 @@ void render_vulkan_single_sphere(const char* output_file, int image_width, int i
     std::clog
         << "Vulkan compute single sphere written to " << output_file << '\n'
         << "  image: " << image_width << "x" << image_height << '\n';
+}
+
+void render_vulkan_multiple_spheres(const char* output_file, int image_width, int image_height) {
+    const std::vector<GpuSphere> spheres{
+        {0.0f, -100.5f, -1.0f, 100.0f},
+        {0.0f, 0.0f, -1.0f, 0.5f},
+        {-1.0f, 0.0f, -1.0f, 0.5f},
+        {1.0f, 0.0f, -1.0f, 0.5f}
+    };
+
+    VulkanComputeRenderer renderer(image_width, image_height, "shaders/spheres.comp.spv", spheres);
+    renderer.render(output_file);
+
+    std::clog
+        << "Vulkan compute multiple spheres written to " << output_file << '\n'
+        << "  image: " << image_width << "x" << image_height << '\n'
+        << "  spheres: " << spheres.size() << '\n';
 }

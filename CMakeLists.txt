@@ -27,9 +27,11 @@ if(USE_VULKAN)
     set(SHADER_DIR ${CMAKE_SOURCE_DIR}/shaders)
     set(SHADER_GRADIENT ${SHADER_DIR}/gradient.comp)
     set(SHADER_SPHERE ${SHADER_DIR}/sphere.comp)
+    set(SHADER_SPHERES ${SHADER_DIR}/spheres.comp)
 
     compile_shader(${SHADER_GRADIENT} COMPILED_GRADIENT)
     compile_shader(${SHADER_SPHERE} COMPILED_SPHERE)
+    compile_shader(${SHADER_SPHERES} COMPILED_SPHERES)
 
     target_sources(inOneWeekend PRIVATE
         src/vulkan_renderer.cpp
@@ -38,6 +40,8 @@ if(USE_VULKAN)
         ${COMPILED_GRADIENT}
         ${SHADER_SPHERE}
         ${COMPILED_SPHERE}
+        ${SHADER_SPHERES}
+        ${COMPILED_SPHERES}
     )
     target_compile_definitions(inOneWeekend PRIVATE RTWEEKEND_VULKAN_ENABLED)
     target_link_libraries(inOneWeekend PRIVATE Vulkan::Vulkan)
